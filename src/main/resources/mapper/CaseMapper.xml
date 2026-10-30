@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.casefile.CaseMapper">
+
+    <select id="findAllByPlayerId"
+            resultType="com.detectivecase.casefile.model.CaseGetListRes">
+        SELECT
+        c.id AS caseId,
+        c.title,
+        CASE
+        WHEN c.case_order = 1 THEN TRUE
+        WHEN EXISTS (
+        SELECT 1
+        FROM game_sessions gs
+        INNER JOIN cases previous_case
+        ON previous_case.id = gs.case_id
+        WHERE gs.player_id = #{playerId}
+        AND gs.status = 'SOLVED'
+        AND previous_case.case_order = c.case_order - 1
+        ) THEN TRUE
+        ELSE FALSE
+        END AS isUnlocked
+        FROM cases c
+        ORDER BY c.case_order
+    </select>
+
+</mapper>
