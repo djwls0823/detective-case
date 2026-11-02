@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.gamesession.GameSessionMapper">
+
+    <!-- 플레이어 UUID의 DB 등록 여부를 확인한다. -->
+    <select id="existsPlayerById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM anonymous_players
+        WHERE id = #{playerId}
+        )
+    </select>
+
+    <!-- 요청한 CASE가 실제로 존재하는지 확인한다. -->
+    <select id="existsCaseById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM cases
+        WHERE id = #{caseId}
+        )
+    </select>
+
+    <!--
+        CASE 선택 가능 여부를 판단한다.
+
+        - CASE 1은 게임의 첫 사건이므로 항상 선택 가능하다.
+        - CASE 2부터는 바로 이전 순서의 CASE를 SOLVED 상태로 해결해야 한다.
+        - CASE가 추가되어도 case_order를 기준으로 동일하게 동작한다.
+    -->
+    <select id="isCaseUnlocked" resultType="boolean">
+        SELECT
+        CASE
+        WHEN c.case_order = 1 THEN TRUE
+        WHEN EXISTS (
+        SELECT 1
+        FROM game_sessions gs
+        INNER JOIN cases previous_case
+        ON previous_case.id = gs.case_id
+        WHERE gs.player_id = #{playerId}
+        AND gs.status = 'SOLVED'
+        AND previous_case.case_order = c.case_order - 1
+        ) THEN TRUE
+        ELSE FALSE
+        END
+        FROM cases c
+        WHERE c.id = #{caseId}
+    </select>
+
+    <!--
+        game_sessions의 (player_id, case_id)는 UNIQUE 제약 조건이다.
+        DB 오류가 나기 전에 중복 세션을 직접 확인해 명확한 오류 메시지를 제공한다.
+    -->
+    <select id="existsByPlayerIdAndCaseId" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM game_sessions
+        WHERE player_id = #{playerId}
+        AND case_id = #{caseId}
+        )
+    </select>
+
+    <!--
+        게임을 처음 시작할 때의 기본 상태를 저장한다.
+        점수는 100점에서 시작하고, 힌트 및 오답 횟수는 0회다.
+    -->
+    <insert id="insert">
+        INSERT INTO game_sessions (
+        id,
+        player_id,
+        case_id,
+        status,
+        score,
+        hint_count,
+        wrong_answer_count
+        )
+        VALUES (
+        #{sessionId},
+        #{playerId},
+        #{caseId},
+        'PLAYING',
+        100,
+        0,
+        0
+        )
+    </insert>
+
+    <!--
+        DB의 snake_case 컬럼명을 응답 DTO의 camelCase 필드명에 맞춘다.
+        이 API에서는 세션 생성 결과만 반환한다.
+    -->
+    <select id="findById"
+            resultType="com.detectivecase.gamesession.model.GameSessionCreateRes">
+        SELECT
+        id AS sessionId,
+        case_id AS caseId,
+        status,
+        score,
+        hint_count AS hintCount,
+        wrong_answer_count AS wrongAnswerCount
+        FROM game_sessions
+        WHERE id = #{sessionId}
+    </select>
+
+    <!--
+    이어서 하기 기능에서 사용한다.
+    game_sessions와 cases를 조인해 세션 상태와 사건 제목을 함께 가져온다.
+-->
+    <select id="findDetailById"
+            resultType="com.detectivecase.gamesession.model.GameSessionGetRes">
+        SELECT
+        gs.id AS sessionId,
+        gs.case_id AS caseId,
+        c.title AS caseTitle,
+        gs.status,
+        gs.score,
+        gs.hint_count AS hintCount,
+        gs.wrong_answer_count AS wrongAnswerCount,
+        gs.grade,
+        gs.created_at AS createdAt,
+        gs.updated_at AS updatedAt
+        FROM game_sessions gs
+        INNER JOIN cases c
+        ON c.id = gs.case_id
+        WHERE gs.id = #{sessionId}
+    </select>
+
+    <!-- 삭제할 게임 세션이 실제로 존재하는지 확인한다. -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM game_sessions
+        WHERE id = #{sessionId}
+        )
+    </select>
+
+    <!--
+        interrogation_history는 game_sessions를 외래 키로 참조한다.
+        부모인 game_sessions를 삭제하기 전에 먼저 삭제해야 한다.
+    -->
+    <delete id="deleteInterrogationHistoryBySessionId">
+        DELETE FROM interrogation_history
+        WHERE session_id = #{sessionId}
+    </delete>
+
+    <!--
+        hint_history 역시 game_sessions를 외래 키로 참조한다.
+        부모 세션보다 먼저 삭제한다.
+    -->
+    <delete id="deleteHintHistoryBySessionId">
+        DELETE FROM hint_history
+        WHERE session_id = #{sessionId}
+    </delete>
+
+    <!-- 모든 하위 기록이 삭제된 뒤 게임 세션을 삭제한다. -->
+    <delete id="deleteById">
+        DELETE FROM game_sessions
+        WHERE id = #{sessionId}
+    </delete>
+
+</mapper>
