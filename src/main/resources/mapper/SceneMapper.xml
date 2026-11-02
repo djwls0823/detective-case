@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.scene.SceneMapper">
+
+    <!--
+        세션에 연결된 CASE의 제목과 현장 이미지 주소를 조회한다.
+
+        scene_image_url은 사진 파일이 준비되기 전까지 NULL일 수 있다.
+        현장 사진의 해석, 증거 설명 등은 포함하지 않는다.
+    -->
+    <select id="findBySessionId"
+            resultType="com.detectivecase.scene.model.CaseSceneGetRes">
+        SELECT
+        c.id AS caseId,
+        c.title AS caseTitle,
+        c.scene_image_url AS sceneImageUrl
+        FROM game_sessions gs
+        INNER JOIN cases c
+        ON c.id = gs.case_id
+        WHERE gs.id = #{sessionId}
+    </select>
+
+</mapper>

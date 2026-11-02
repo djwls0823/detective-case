@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.briefing.BriefingMapper">
+
+    <!--
+        게임 세션과 CASE를 조인해 사건 브리핑 정보를 가져온다.
+
+        sessionId 하나에는 하나의 case_id만 연결되어 있으므로,
+        결과가 없으면 존재하지 않는 세션 ID라고 판단할 수 있다.
+    -->
+    <select id="findBySessionId"
+            resultType="com.detectivecase.briefing.model.CaseBriefingGetRes">
+        SELECT
+        c.id AS caseId,
+        c.title,
+        c.briefing,
+        c.victim_name AS victimName,
+        c.location,
+        c.estimated_death_time AS estimatedDeathTime,
+        c.cause_of_death AS causeOfDeath
+        FROM game_sessions gs
+        INNER JOIN cases c
+        ON c.id = gs.case_id
+        WHERE gs.id = #{sessionId}
+    </select>
+
+</mapper>
