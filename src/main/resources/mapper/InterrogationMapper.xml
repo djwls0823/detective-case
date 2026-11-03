@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.interrogation.InterrogationMapper">
+
+    <!-- 요청한 게임 세션이 실제로 존재하는지 확인한다. -->
+    <select id="existsSessionById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM game_sessions
+        WHERE id = #{sessionId}
+        )
+    </select>
+
+    <!--
+        현재 세션의 CASE에 속한 질문만 조회한다.
+
+        questions → suspects → game_sessions 순서로 연결해,
+        다른 CASE의 questionId를 URL에 넣어도 답변을 확인할 수 없게 한다.
+
+        statements는 question_id를 UNIQUE로 가지므로
+        질문 하나당 답변 하나가 연결된다.
+    -->
+    <select id="findAnswerBySessionIdAndQuestionId"
+            resultType="com.detectivecase.interrogation.model.InterrogationAnswerRes">
+        SELECT
+        q.id AS questionId,
+        q.question_text AS questionText,
+        st.answer_text AS answerText
+        FROM game_sessions gs
+        INNER JOIN suspects s
+        ON s.case_id = gs.case_id
+        INNER JOIN questions q
+        ON q.suspect_id = s.id
+        INNER JOIN statements st
+        ON st.question_id = q.id
+        WHERE gs.id = #{sessionId}
+        AND q.id = #{questionId}
+    </select>
+
+    <!--
+        질문을 처음 선택했을 때만 심문 기록을 저장한다.
+
+        interrogation_history의 기본 키는 (session_id, question_id)다.
+        INSERT IGNORE는 같은 질문을 다시 눌러도 중복 키 오류를 내지 않는다.
+
+        반환값:
+        1 = 이번에 새 기록 생성
+        0 = 기존 기록이 이미 존재함
+    -->
+    <insert id="insertHistory">
+        INSERT IGNORE INTO interrogation_history (
+        session_id,
+        question_id
+        )
+        VALUES (
+        #{sessionId},
+        #{questionId}
+        )
+    </insert>
+
+</mapper>

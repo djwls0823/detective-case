@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.solution.SolutionMapper">
+
+    <!-- 세션의 현재 CASE, 상태, 점수를 조회한다. -->
+    <select id="findSessionStateById"
+            resultType="com.detectivecase.solution.model.SolutionSessionState">
+        SELECT
+        case_id AS caseId,
+        status,
+        score
+        FROM game_sessions
+        WHERE id = #{sessionId}
+    </select>
+
+    <!-- 선택한 용의자가 현재 CASE의 용의자인지 검증한다. -->
+    <select id="existsSuspectInCase" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM suspects
+        WHERE case_id = #{caseId}
+        AND id = #{suspectId}
+        )
+    </select>
+
+    <!-- 선택한 증거가 현재 CASE의 증거인지 검증한다. -->
+    <select id="existsEvidenceInCase" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM evidences
+        WHERE case_id = #{caseId}
+        AND id = #{evidenceId}
+        )
+    </select>
+
+    <!-- CASE별 정답 범인과 사건의 진실 전문을 조회한다. -->
+    <select id="findCaseSolutionByCaseId"
+            resultType="com.detectivecase.solution.model.CaseSolution">
+        SELECT
+        culprit_suspect_id AS culpritSuspectId,
+        truth_summary AS truthSummary
+        FROM case_solutions
+        WHERE case_id = #{caseId}
+    </select>
+
+    <!-- 선택한 증거가 정답 증거 목록에 들어 있는지 확인한다. -->
+    <select id="isCorrectEvidence" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM case_solutions cs
+        INNER JOIN case_solution_evidences cse
+        ON cse.case_solution_id = cs.id
+        WHERE cs.case_id = #{caseId}
+        AND cse.evidence_id = #{evidenceId}
+        )
+    </select>
+
+    <!--
+        키워드 그룹별 키워드를 모두 조회한다.
+
+        예시:
+        group 1: 정전, 차단기, 두꺼비집
+        group 2: 상한, 변질, 부패
+        group 3: 샐러드, 생채소, 날것
+    -->
+    <select id="findKeywordRowsByCaseId"
+            resultType="com.detectivecase.solution.model.SolutionKeywordRow">
+        SELECT
+        skg.id AS keywordGroupId,
+        sk.keyword_text AS keywordText
+        FROM case_solutions cs
+        INNER JOIN solution_keyword_groups skg
+        ON skg.case_solution_id = cs.id
+        INNER JOIN solution_keywords sk
+        ON sk.keyword_group_id = skg.id
+        WHERE cs.case_id = #{caseId}
+        ORDER BY
+        skg.display_order,
+        sk.id
+    </select>
+
+    <!--
+        정답을 맞힌 경우에만 사건 해결 상태로 변경한다.
+
+        submitted_* 컬럼은 최종 정답 제출 내용을 기록하기 위한 값이다.
+    -->
+    <update id="markSolved">
+        UPDATE game_sessions
+        SET
+        status = 'SOLVED',
+        submitted_suspect_id = #{suspectId},
+        submitted_evidence_id = #{evidenceId},
+        submitted_truth = #{truth},
+        grade = #{grade},
+        solved_at = NOW()
+        WHERE id = #{sessionId}
+        AND status = 'PLAYING'
+    </update>
+
+    <!-- 오답 시 점수 10점 차감 및 오답 횟수 증가 -->
+    <update id="applyWrongAnswerPenalty">
+        UPDATE game_sessions
+        SET
+        score = GREATEST(score - 10, 0),
+        wrong_answer_count = wrong_answer_count + 1
+        WHERE id = #{sessionId}
+    </update>
+
+</mapper>
