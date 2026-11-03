@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.suspect.SuspectMapper">
+
+    <!-- 존재하지 않는 세션 요청을 구분하기 위해 사용한다. -->
+    <select id="existsSessionById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM game_sessions
+        WHERE id = #{sessionId}
+        )
+    </select>
+
+    <!--
+        현재 세션이 플레이하는 CASE의 용의자 목록을 조회한다.
+
+        질문 수(q.id)와 심문 기록 수(ih.question_id)가 같으면
+        해당 용의자의 준비된 질문을 모두 확인한 것으로 판단한다.
+
+        interrogation_history는 (session_id, question_id)가 PK이므로
+        같은 질문이 중복으로 계산되지 않는다.
+    -->
+    <select id="findAllBySessionId"
+            resultType="com.detectivecase.suspect.model.SuspectGetListRes">
+        SELECT
+        s.id AS suspectId,
+        s.name,
+        s.role_name AS roleName,
+        CASE
+        WHEN COUNT(q.id) = COUNT(ih.question_id) THEN TRUE
+        ELSE FALSE
+        END AS isInterrogationCompleted
+        FROM game_sessions gs
+        INNER JOIN suspects s
+        ON s.case_id = gs.case_id
+        LEFT JOIN questions q
+        ON q.suspect_id = s.id
+        LEFT JOIN interrogation_history ih
+        ON ih.question_id = q.id
+        AND ih.session_id = gs.id
+        WHERE gs.id = #{sessionId}
+        GROUP BY
+        s.id,
+        s.name,
+        s.role_name,
+        s.display_order
+        ORDER BY s.display_order
+    </select>
+
+    <!--
+    세션이 진행 중인 CASE에 속한 용의자만 조회한다.
+
+    단순히 suspects 테이블에서 suspectId만 조회하지 않고
+    game_sessions와 함께 조회하므로, 다른 CASE의 용의자를
+    주소에 직접 입력해 조회하는 것을 막는다.
+-->
+    <select id="findBySessionIdAndSuspectId"
+            resultType="com.detectivecase.suspect.model.SuspectGetRes">
+        SELECT
+        s.id AS suspectId,
+        s.name,
+        s.role_name AS roleName,
+        s.initial_statement AS initialStatement
+        FROM game_sessions gs
+        INNER JOIN suspects s
+        ON s.case_id = gs.case_id
+        WHERE gs.id = #{sessionId}
+        AND s.id = #{suspectId}
+    </select>
+
+    <!--
+        해당 용의자의 질문 목록을 순서대로 조회한다.
+
+        interrogation_history에 현재 sessionId와 questionId가 함께 존재하면
+        이미 플레이어가 확인한 질문이므로 isAsked를 TRUE로 반환한다.
+    -->
+    <select id="findQuestionsBySessionIdAndSuspectId"
+            resultType="com.detectivecase.suspect.model.SuspectQuestionGetRes">
+        SELECT
+        q.id AS questionId,
+        q.question_text AS questionText,
+        CASE
+        WHEN ih.question_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+        END AS isAsked
+        FROM questions q
+        LEFT JOIN interrogation_history ih
+        ON ih.question_id = q.id
+        AND ih.session_id = #{sessionId}
+        WHERE q.suspect_id = #{suspectId}
+        ORDER BY q.display_order
+    </select>
+
+</mapper>

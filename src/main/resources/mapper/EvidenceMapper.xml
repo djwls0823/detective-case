@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.evidence.EvidenceMapper">
+
+    <!-- 요청에 사용한 게임 세션이 존재하는지 확인한다. -->
+    <select id="existsSessionById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM game_sessions
+        WHERE id = #{sessionId}
+        )
+    </select>
+
+    <!--
+        현재 세션의 CASE에 속한 증거를 표시 순서대로 조회한다.
+
+        증거의 관찰 정보만 반환한다.
+        특정 증거가 범인과 연결되는지, 함정 증거인지 등의
+        해석 정보는 API 응답에 포함하지 않는다.
+    -->
+    <select id="findAllBySessionId"
+            resultType="com.detectivecase.evidence.model.EvidenceGetListRes">
+        SELECT
+        e.id AS evidenceId,
+        e.name,
+        e.description,
+        e.image_url AS imageUrl
+        FROM game_sessions gs
+        INNER JOIN evidences e
+        ON e.case_id = gs.case_id
+        WHERE gs.id = #{sessionId}
+        ORDER BY e.display_order
+    </select>
+
+</mapper>

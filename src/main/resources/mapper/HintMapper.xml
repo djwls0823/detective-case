@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.hint.HintMapper">
+
+    <!-- 세션이 존재하는지와 현재 상태를 한 번에 조회한다. -->
+    <select id="findSessionStateById"
+            resultType="com.detectivecase.hint.model.HintSessionState">
+        SELECT
+        status,
+        score,
+        hint_count AS hintCount
+        FROM game_sessions
+        WHERE id = #{sessionId}
+    </select>
+
+    <!--
+        아직 사용하지 않은 힌트 중 hint_order가 가장 빠른 하나를 가져온다.
+
+        hint_history에 기록된 힌트는 제외하므로
+        같은 힌트가 두 번 반환되지 않는다.
+    -->
+    <select id="findNextUnusedHint"
+            resultType="com.detectivecase.hint.model.HintUseRes">
+        SELECT
+        h.id AS hintId,
+        h.hint_order AS hintOrder,
+        h.content
+        FROM game_sessions gs
+        INNER JOIN case_hints h
+        ON h.case_id = gs.case_id
+        LEFT JOIN hint_history hh
+        ON hh.hint_id = h.id
+        AND hh.session_id = gs.id
+        WHERE gs.id = #{sessionId}
+        AND hh.hint_id IS NULL
+        ORDER BY h.hint_order
+        LIMIT 1
+    </select>
+
+    <!-- 현재 세션에서 힌트를 사용했다는 기록을 저장한다. -->
+    <insert id="insertHintHistory">
+        INSERT INTO hint_history (
+        session_id,
+        hint_id
+        )
+        VALUES (
+        #{sessionId},
+        #{hintId}
+        )
+    </insert>
+
+    <!-- 힌트 사용 후 점수와 사용 횟수를 변경한다. -->
+    <update id="useHint">
+        UPDATE game_sessions
+        SET
+        score = score - 5,
+        hint_count = hint_count + 1
+        WHERE id = #{sessionId}
+    </update>
+
+</mapper>

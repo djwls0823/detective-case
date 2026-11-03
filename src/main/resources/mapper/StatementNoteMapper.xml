@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.detectivecase.statementnote.StatementNoteMapper">
+
+    <!-- 요청한 게임 세션이 실제로 존재하는지 확인한다. -->
+    <select id="existsSessionById" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM game_sessions
+        WHERE id = #{sessionId}
+        )
+    </select>
+
+    <!--
+        현재 CASE의 모든 질문을 확인했는지 판단한다.
+
+        전체 질문 수와 현재 세션의 질문 기록 수가 같으면
+        모든 심문을 완료한 상태다.
+    -->
+    <select id="isAllInterrogationsCompleted" resultType="boolean">
+        SELECT
+        CASE
+        WHEN COUNT(q.id) = COUNT(ih.question_id) THEN TRUE
+        ELSE FALSE
+        END
+        FROM game_sessions gs
+        INNER JOIN suspects s
+        ON s.case_id = gs.case_id
+        INNER JOIN questions q
+        ON q.suspect_id = s.id
+        LEFT JOIN interrogation_history ih
+        ON ih.question_id = q.id
+        AND ih.session_id = gs.id
+        WHERE gs.id = #{sessionId}
+    </select>
+
+    <!--
+        용의자별 기본 진술과 모든 질문·답변을 조회한다.
+
+        이 SQL은 질문 하나당 한 행을 반환한다.
+        Service에서 suspectId를 기준으로 묶어 진술 노트 형태로 만든다.
+    -->
+    <select id="findAllBySessionId"
+            resultType="com.detectivecase.statementnote.model.StatementNoteRow">
+        SELECT
+        s.id AS suspectId,
+        s.name,
+        s.role_name AS roleName,
+        s.initial_statement AS initialStatement,
+        q.id AS questionId,
+        q.question_text AS questionText,
+        st.answer_text AS answerText
+        FROM game_sessions gs
+        INNER JOIN suspects s
+        ON s.case_id = gs.case_id
+        INNER JOIN questions q
+        ON q.suspect_id = s.id
+        INNER JOIN statements st
+        ON st.question_id = q.id
+        WHERE gs.id = #{sessionId}
+        ORDER BY
+        s.display_order,
+        q.display_order
+    </select>
+
+</mapper>
