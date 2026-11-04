@@ -5,7 +5,7 @@
 
 <mapper namespace="com.detectivecase.hint.HintMapper">
 
-    <!-- 세션이 존재하는지와 현재 상태를 한 번에 조회한다. -->
+    <!-- 세션의 현재 상태, 점수, 힌트 사용 횟수를 조회한다. -->
     <select id="findSessionStateById"
             resultType="com.detectivecase.hint.model.HintSessionState">
         SELECT
@@ -16,12 +16,7 @@
         WHERE id = #{sessionId}
     </select>
 
-    <!--
-        아직 사용하지 않은 힌트 중 hint_order가 가장 빠른 하나를 가져온다.
-
-        hint_history에 기록된 힌트는 제외하므로
-        같은 힌트가 두 번 반환되지 않는다.
-    -->
+    <!-- 아직 사용하지 않은 힌트 중 가장 순서가 빠른 하나를 조회한다. -->
     <select id="findNextUnusedHint"
             resultType="com.detectivecase.hint.model.HintUseRes">
         SELECT
@@ -38,6 +33,20 @@
         AND hh.hint_id IS NULL
         ORDER BY h.hint_order
         LIMIT 1
+    </select>
+
+    <!-- 현재 세션에서 사용한 힌트만 순서대로 조회한다. -->
+    <select id="findUsedHints"
+            resultType="com.detectivecase.hint.model.HintGetRes">
+        SELECT
+        h.id AS hintId,
+        h.hint_order AS hintOrder,
+        h.content
+        FROM hint_history hh
+        INNER JOIN case_hints h
+        ON h.id = hh.hint_id
+        WHERE hh.session_id = #{sessionId}
+        ORDER BY h.hint_order
     </select>
 
     <!-- 현재 세션에서 힌트를 사용했다는 기록을 저장한다. -->
