@@ -1,9 +1,12 @@
 package com.detectivecase.hint;
 
+import com.detectivecase.hint.model.HintGetRes;
 import com.detectivecase.hint.model.HintSessionState;
 import com.detectivecase.hint.model.HintUseRes;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 @Mapper
 public interface HintMapper {
@@ -13,11 +16,13 @@ public interface HintMapper {
             @Param("sessionId") String sessionId
     );
 
-    /*
-     * 현재 세션이 아직 사용하지 않은 힌트 중
-     * 가장 순서가 빠른 힌트 하나를 조회한다.
-     */
+    // 아직 사용하지 않은 다음 힌트 하나를 조회한다.
     HintUseRes findNextUnusedHint(
+            @Param("sessionId") String sessionId
+    );
+
+    // 현재 세션에서 이미 사용한 힌트 목록을 조회한다.
+    List<HintGetRes> findUsedHints(
             @Param("sessionId") String sessionId
     );
 
@@ -27,10 +32,6 @@ public interface HintMapper {
             @Param("hintId") Long hintId
     );
 
-    /*
-     * 힌트 사용에 따른 상태를 반영한다.
-     *
-     * 점수는 5점 차감하고, hint_count는 1 증가한다.
-     */
+    // 점수 5점 차감 및 힌트 사용 횟수 증가
     int useHint(@Param("sessionId") String sessionId);
 }
