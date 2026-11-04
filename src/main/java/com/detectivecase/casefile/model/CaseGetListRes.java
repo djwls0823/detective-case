@@ -11,4 +11,5 @@ public class CaseGetListRes {
     private Long caseId;
     private String title;
     private Boolean isUnlocked;
+    private Boolean isSolved;
 }
