@@ -10,6 +10,7 @@
         SELECT
         c.id AS caseId,
         c.title,
+
         CASE
         WHEN c.case_order = 1 THEN TRUE
         WHEN EXISTS (
@@ -22,7 +23,19 @@
         AND previous_case.case_order = c.case_order - 1
         ) THEN TRUE
         ELSE FALSE
-        END AS isUnlocked
+        END AS isUnlocked,
+
+        CASE
+        WHEN EXISTS (
+        SELECT 1
+        FROM game_sessions gs
+        WHERE gs.player_id = #{playerId}
+        AND gs.case_id = c.id
+        AND gs.status = 'SOLVED'
+        ) THEN TRUE
+        ELSE FALSE
+        END AS isSolved
+
         FROM cases c
         ORDER BY c.case_order
     </select>
